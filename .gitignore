@@ -1,2 +1,6 @@
 *.swp
 obj-intel64/
+tags
+
+*.out
+*.log
