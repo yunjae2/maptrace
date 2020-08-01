@@ -15,4 +15,6 @@ echo "#!/bin/bash" > $BIN
 echo "CMD=\"\$@\"" >> $BIN
 echo "$PIN -t $LIBDIR/maptrace.so \$CMD" >> $BIN
 
+cp vis/vis $BINDIR
+
 chmod +x $BIN

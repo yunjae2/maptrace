@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+import os
+import sys
+import struct
+import matplotlib.pyplot as plt
+import matplotlib
+import argparse
+import json
+from tqdm import tqdm
+
+TYPE_SHIFT = 60
+TYPE_REF = 0x0
+TYPE_MALLOC = 0x8
+TYPE_CALLOC = 0x9
+TYPE_REALLOC = 0xa
+TYPE_FREE = 0xb
+TYPE_ICOUNT = 0xf
+ADDR_MASK = (0x1 << TYPE_SHIFT) - 1
+
+PAGE_SHIFT = 12
+PAGE_SIZE = 0x1 << PAGE_SHIFT
+PAGE_MASK = ~(PAGE_SIZE - 1)
+
+def PAGE_ALIGN(addr):
+    return (addr + PAGE_SIZE - 1) & PAGE_MASK
+
+
+def ENTRY_TYPE(addr):
+    return addr >> TYPE_SHIFT
+
+
+def ENTRY_ADDR(addr):
+    return addr & ADDR_MASK
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Visualization tool for maptrace")
+    parser.add_argument("trace", help="maptrace trace file")
+    parser.add_argument("-r", metavar="rconfig", help="config file containing roi info")
+
+    args = parser.parse_args()
+
+    trace_file = args.trace
+    trace_name = os.path.splitext(os.path.basename(trace_file))[0]
+    rconfig_file = args.r
+
+    return trace_name, trace_file, rconfig_file
+
+
+def read_rconfig(rconfig_file):
+    with open(rconfig_file) as f:
+        roi = json.load(f)
+
+    return roi
+
+
+def extract(trace_file, roi):
+    print("Extracting traces..")
+
+    all_trace = []
+    roi_global_trace = []
+    roi_local_traces = {key: [] for key in roi}
+
+    def reg_ref(addr, size):
+        all_trace.append(addr)
+
+        in_roi = False
+        for key in roi:
+            start_addr = roi[key]['addr']
+            size = roi[key]['size']
+            if start_addr <= addr and addr < (start_addr + size):
+                roi_local_traces[key].append(addr)
+                in_roi = True
+
+        if in_roi:
+            roi_global_trace.append(addr)
+
+    with open(trace_file, 'rb') as f:
+        trace_data = f.read()
+
+    pos_prev = 0
+    pos = 0
+    end_pos = len(trace_data)
+    pbar = tqdm(total = end_pos)
+    while pos < end_pos:
+        addr = struct.unpack("L", trace_data[pos:pos+8])[0]
+        pos = pos + 8
+        trace_type = ENTRY_TYPE(addr)
+        addr = ENTRY_ADDR(addr)
+
+        if trace_type == TYPE_REF:
+            ref_size = struct.unpack("i", trace_data[pos:pos+4])[0]
+            pos = pos + 4
+            reg_ref(addr, ref_size)
+
+        else:
+            # wrong path
+            print("Wrong trace format..\n")
+            sys.exit(1)
+
+        if pos - pos_prev >= end_pos // 1000:
+            pbar.update(pos - pos_prev)
+            pos_prev = pos
+
+    pbar.update(pos - pos_prev)
+
+    return all_trace, roi_global_trace, roi_local_traces
+
+
+def visualize(all_trace, roi_global_trace, roi_local_traces, name):
+    print("Drawing plots..")
+
+    os.makedirs(name, exist_ok = True)
+
+    matplotlib.rcParams.update({'font.size': 28})
+    pbar = tqdm(total = len(roi_local_traces) + 2)
+
+    # all trace
+    fig, ax = plt.subplots(figsize = (8, 7))
+    ax.plot(all_trace, 'k.', markersize = 0.3)
+    fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
+    plt.ticklabel_format(useMathText = True)
+    plt.xlabel("Virtual time", labelpad = 20)
+    fig.tight_layout()
+    plt.savefig(os.path.join(name, "all.png"), dpi = 600)
+    pbar.update(1)
+
+    # roi global trace
+    fig, ax = plt.subplots(figsize = (8, 7))
+    ax.plot(roi_global_trace, 'k.', markersize = 0.3)
+    fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
+    plt.ticklabel_format(useMathText = True)
+    plt.xlabel("Virtual time", labelpad = 20)
+    fig.tight_layout()
+    plt.savefig(os.path.join(name, "roi_global.png"), dpi = 600)
+    pbar.update(1)
+
+    # roi local traces
+    for key in roi_local_traces:
+        plt.cla()
+        fig, ax = plt.subplots(figsize = (8, 7))
+        ax.plot(roi_local_traces[key], 'k.', markersize = 0.3)
+        fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
+        fig.tight_layout()
+        plt.ticklabel_format(useMathText = True)
+        plt.xlabel("Virtual time", labelpad = 20)
+        plt.savefig(os.path.join(name, f"{key}.png"), dpi = 600)
+        pbar.update(1)
+
+
+def main():
+    trace_name, trace_file, rconfig_file = parse_args()
+    roi = read_rconfig(rconfig_file)
+    all_trace, roi_global_trace, roi_local_traces = extract(trace_file, roi)
+    visualize(all_trace, roi_global_trace, roi_local_traces, trace_name)
+
+
+if __name__ == "__main__":
+    main()
