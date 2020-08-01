@@ -13,6 +13,6 @@ cp $MAPTRACE $LIBDIR
 
 echo "#!/bin/bash" > $BIN
 echo "CMD=\"\$@\"" >> $BIN
-echo "$PIN -t $LIBDIR/maptrace.so -- \$CMD" >> $BIN
+echo "$PIN -t $LIBDIR/maptrace.so \$CMD" >> $BIN
 
 chmod +x $BIN
