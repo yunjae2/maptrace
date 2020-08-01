@@ -146,9 +146,15 @@ VOID Instruction(INS ins, VOID *v)
 	if (activated <= 0)
 		return;
 
+	if (INS_IsStackRead(ins) || INS_IsStackWrite(ins))
+		return;
+
+	if (!INS_IsStandardMemop(ins))
+		return;
+
 	// instruments loads using a predicated call, i.e.
 	// the call happens iff the load will be actually executed
-	if (INS_IsMemoryRead(ins) && INS_IsStandardMemop(ins))
+	if (INS_IsMemoryRead(ins))
 	{
 		INS_InsertPredicatedCall(
 				ins, IPOINT_BEFORE, (AFUNPTR)RecordMem,
@@ -157,7 +163,7 @@ VOID Instruction(INS ins, VOID *v)
 				IARG_END);
 	}
 
-	if (INS_HasMemoryRead2(ins) && INS_IsStandardMemop(ins))
+	if (INS_HasMemoryRead2(ins))
 	{
 		INS_InsertPredicatedCall(
 				ins, IPOINT_BEFORE, (AFUNPTR)RecordMem,
@@ -168,7 +174,7 @@ VOID Instruction(INS ins, VOID *v)
 
 	// instruments stores using a predicated call, i.e.
 	// the call happens iff the store will be actually executed
-	if (INS_IsMemoryWrite(ins) && INS_IsStandardMemop(ins))
+	if (INS_IsMemoryWrite(ins))
 	{
 		INS_InsertPredicatedCall(
 				ins, IPOINT_BEFORE, (AFUNPTR)RecordWriteAddrSize,
@@ -194,8 +200,6 @@ VOID Instruction(INS ins, VOID *v)
 VOID Routine(RTN rtn, void *v)
 {
 	if (is_target(rtn)) {
-		std::cout << RTN_Name(rtn) << std::endl;
-
 		RTN_Open(rtn);
 		RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)Activate, IARG_END);
 		RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)Deactivate, IARG_END);
