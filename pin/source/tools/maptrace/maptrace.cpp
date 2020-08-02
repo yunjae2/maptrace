@@ -119,10 +119,12 @@ BOOL is_target(RTN rtn)
 {
 	UINT32 nr_funcs = KnobFuncs.NumberOfValues();
 	UINT32 i;
+	string rtn_name = PIN_UndecorateSymbolName(RTN_Name(rtn),
+			UNDECORATION_NAME_ONLY);
 
 	for (i = 0; i < nr_funcs; i++)
 	{
-		if (RTN_Name(rtn) == KnobFuncs.Value(i))
+		if (rtn_name == KnobFuncs.Value(i))
 			return true;
 	}
 
