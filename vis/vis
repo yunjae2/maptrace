@@ -121,22 +121,22 @@ def visualize(all_trace, roi_global_trace, roi_local_traces, name):
     # all trace
     fig, ax = plt.subplots(figsize = (8, 7))
     ax.plot(all_trace, 'k.', markersize = 0.3)
-    fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
     plt.ticklabel_format(useMathText = True)
     plt.xlabel("Virtual time", labelpad = 20)
     fig.tight_layout()
     plt.savefig(os.path.join(name, "all.png"), dpi = 600)
+    plt.close(fig)
     pbar.update(1)
 
     # roi global trace
     # TODO: plot discontiguously
     fig, ax = plt.subplots(figsize = (8, 7))
     ax.plot(roi_global_trace, 'k.', markersize = 0.3)
-    fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
     plt.ticklabel_format(useMathText = True)
     plt.xlabel("Virtual time", labelpad = 20)
     fig.tight_layout()
     plt.savefig(os.path.join(name, "roi_global.png"), dpi = 600)
+    plt.close(fig)
     pbar.update(1)
 
     # roi local traces
@@ -144,11 +144,11 @@ def visualize(all_trace, roi_global_trace, roi_local_traces, name):
         plt.cla()
         fig, ax = plt.subplots(figsize = (8, 7))
         ax.plot(roi_local_traces[key], 'k.', markersize = 0.3)
-        fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
         fig.tight_layout()
         plt.ticklabel_format(useMathText = True)
         plt.xlabel("Virtual time", labelpad = 20)
         plt.savefig(os.path.join(name, f"{key}.png"), dpi = 600)
+        plt.close(fig)
         pbar.update(1)
 
 
