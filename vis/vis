@@ -5,7 +5,7 @@ import struct
 import matplotlib.pyplot as plt
 import matplotlib
 import argparse
-import json
+import yaml
 from tqdm import tqdm
 
 TYPE_SHIFT = 60
@@ -52,7 +52,7 @@ def read_rconfig(rconfig_file):
         return {}
 
     with open(rconfig_file) as f:
-        roi = json.load(f)
+        roi = yaml.safe_load(f)
 
     return roi
 
