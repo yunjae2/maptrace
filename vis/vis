@@ -48,6 +48,9 @@ def parse_args():
 
 
 def read_rconfig(rconfig_file):
+    if not rconfig_file:
+        return None
+
     with open(rconfig_file) as f:
         roi = json.load(f)
 
@@ -126,6 +129,7 @@ def visualize(all_trace, roi_global_trace, roi_local_traces, name):
     pbar.update(1)
 
     # roi global trace
+    # TODO: plot discontiguously
     fig, ax = plt.subplots(figsize = (8, 7))
     ax.plot(roi_global_trace, 'k.', markersize = 0.3)
     fig.subplots_adjust(bottom = 0.18, top = 0.9, left = 0.1, right = 0.9)
