@@ -199,14 +199,24 @@ VOID Instruction(INS ins, VOID *v)
 	}
 }
 
-VOID Routine(RTN rtn, void *v)
+VOID Image(IMG img, void *v)
 {
-	if (is_target(rtn)) {
-		RTN_Open(rtn);
-		RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)Activate, IARG_END);
-		RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)Deactivate, IARG_END);
-		RTN_Close(rtn);
-	}
+	for (SEC sec = IMG_SecHead(img); SEC_Valid(sec); sec = SEC_Next(sec))
+    {
+        // RTN_InsertCall() and INS_InsertCall() are executed in order of
+        // appearance.  In the code sequence below, the IPOINT_AFTER is
+        // executed before the IPOINT_BEFORE.
+        for (RTN rtn = SEC_RtnHead(sec); RTN_Valid(rtn); rtn = RTN_Next(rtn))
+        {
+			if (!is_target(rtn))
+				continue;
+
+            RTN_Open( rtn );
+			RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)Activate, IARG_END);
+			RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)Deactivate, IARG_END);
+            RTN_Close( rtn );
+        }
+    }
 }
 
 /* ===================================================================== */
@@ -239,7 +249,7 @@ int main(int argc, char *argv[])
 	DebugTraceFile.setf(ios::showbase);
 #endif
 
-	RTN_AddInstrumentFunction(Routine, 0);
+	IMG_AddInstrumentFunction(Image, 0);
 	INS_AddInstrumentFunction(Instruction, 0);
 	PIN_AddFiniFunction(Fini, 0);
 
