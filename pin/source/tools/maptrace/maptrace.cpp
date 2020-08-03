@@ -70,6 +70,8 @@ KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
 KNOB<string> KnobFuncs(KNOB_MODE_APPEND, "pintool",
 		"f", "foo", "Target function names to trace");
 
+PIN_MUTEX fmutex;
+
 /* ===================================================================== */
 /* Print Help Message                                                    */
 /* ===================================================================== */
@@ -88,7 +90,7 @@ static INT32 Usage()
 	return -1;
 }
 
-static VOID RecordMem(VOID * addr, INT32 size)
+static VOID __RecordMem(VOID * addr, INT32 size)
 {
 	ADDRINT address = SignRef((ADDRINT) addr);
 
@@ -99,18 +101,32 @@ static VOID RecordMem(VOID * addr, INT32 size)
 	TraceFile.write((char *)&size, sizeof(INT32));
 }
 
+static VOID RecordMem(VOID * addr, INT32 size)
+{
+	PIN_MutexLock(&fmutex);
+	__RecordMem(addr, size);
+	PIN_MutexUnlock(&fmutex);
+}
+
 static VOID * WriteAddr;
 static INT32 WriteSize;
 
 static VOID RecordWriteAddrSize(VOID * addr, INT32 size)
 {
+	PIN_MutexLock(&fmutex);
 	WriteAddr = addr;
 	WriteSize = size;
 }
 
 static VOID RecordMemWrite(VOID)
 {
-	RecordMem(WriteAddr, WriteSize);
+	__RecordMem(WriteAddr, WriteSize);
+	PIN_MutexUnlock(&fmutex);
+}
+
+static VOID NoRecordMemWrite(VOID)
+{
+	PIN_MutexUnlock(&fmutex);
 }
 
 /* ===================================================================== */
@@ -189,13 +205,26 @@ VOID Instruction(INS ins, VOID *v)
 			INS_InsertCall(
 					ins, IPOINT_AFTER, (AFUNPTR)RecordMemWrite,
 					IARG_END);
+			if (INS_IsValidForIpointTakenBranch(ins))
+			{
+				INS_InsertCall(
+						ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)RecordMemWrite,
+						IARG_END);
+			}
 		}
-		if (INS_IsValidForIpointTakenBranch(ins))
+		else if (INS_IsValidForIpointTakenBranch(ins))
 		{
 			INS_InsertCall(
 					ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)RecordMemWrite,
 					IARG_END);
 		}
+		else
+		{
+			INS_InsertCall(
+					ins, IPOINT_AFTER, (AFUNPTR)NoRecordMemWrite,
+					IARG_END);
+		}
+
 	}
 }
 
@@ -249,6 +278,8 @@ int main(int argc, char *argv[])
 	DebugTraceFile.setf(ios::showbase);
 #endif
 
+	PIN_MutexInit(&fmutex);
+
 	IMG_AddInstrumentFunction(Image, 0);
 	INS_AddInstrumentFunction(Instruction, 0);
 	PIN_AddFiniFunction(Fini, 0);
@@ -259,6 +290,8 @@ int main(int argc, char *argv[])
 
 	RecordMemWrite();
 	RecordWriteAddrSize(0, 0);
+
+	PIN_MutexFini(&fmutex);
 
 	return 0;
 }
