@@ -52,7 +52,12 @@ def read_rconfig(rconfig_file):
         return {}
 
     with open(rconfig_file) as f:
-        ranges = yaml.safe_load(f)
+        ranges_raw = yaml.safe_load(f)
+
+    ranges = {}
+    for key, value in ranges_raw.items():
+        if value not in ranges.values():
+            ranges[key] = value
 
     return ranges
 
