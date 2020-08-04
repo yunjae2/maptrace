@@ -36,7 +36,7 @@ def ENTRY_ADDR(addr):
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualization tool for maptrace")
     parser.add_argument("trace", help="maptrace trace file")
-    parser.add_argument("-r", metavar="rconfig", help="config file containing roi info")
+    parser.add_argument("-r", metavar="rconfig", help="config file containing range info")
 
     args = parser.parse_args()
 
@@ -52,31 +52,31 @@ def read_rconfig(rconfig_file):
         return {}
 
     with open(rconfig_file) as f:
-        roi = yaml.safe_load(f)
+        ranges = yaml.safe_load(f)
 
-    return roi
+    return ranges
 
 
-def extract(trace_file, roi):
+def extract(trace_file, ranges):
     print("Extracting traces..")
 
     all_trace = []
-    roi_global_trace = []
-    roi_local_traces = {key: [] for key in roi}
+    global_trace = []
+    local_traces = {key: [] for key in ranges}
 
     def reg_ref(addr, size):
         all_trace.append(addr)
 
-        in_roi = False
-        for key in roi:
-            start_addr = roi[key]['addr']
-            size = roi[key]['size']
+        in_ranges = False
+        for key in ranges:
+            start_addr = ranges[key]['addr']
+            size = ranges[key]['size']
             if start_addr <= addr and addr < (start_addr + size):
-                roi_local_traces[key].append(addr)
-                in_roi = True
+                local_traces[key].append(addr)
+                in_ranges = True
 
-        if in_roi:
-            roi_global_trace.append(addr)
+        if in_ranges:
+            global_trace.append(addr)
 
     with open(trace_file, 'rb') as f:
         trace_data = f.read()
@@ -107,16 +107,16 @@ def extract(trace_file, roi):
 
     pbar.update(pos - pos_prev)
 
-    return all_trace, roi_global_trace, roi_local_traces
+    return all_trace, global_trace, local_traces
 
 
-def visualize(all_trace, roi_global_trace, roi_local_traces, name):
+def visualize(all_trace, global_trace, local_traces, name):
     print("Drawing plots..")
 
     os.makedirs(name, exist_ok = True)
 
     matplotlib.rcParams.update({'font.size': 28})
-    pbar = tqdm(total = len(roi_local_traces) + 2)
+    pbar = tqdm(total = len(local_traces) + 2)
 
     # all trace
     fig, ax = plt.subplots(figsize = (8, 7))
@@ -128,22 +128,22 @@ def visualize(all_trace, roi_global_trace, roi_local_traces, name):
     plt.close(fig)
     pbar.update(1)
 
-    # roi global trace
+    # ranges global trace
     # TODO: plot discontiguously
     fig, ax = plt.subplots(figsize = (8, 7))
-    ax.plot(roi_global_trace, 'k.', markersize = 0.3)
+    ax.plot(global_trace, 'k.', markersize = 0.3)
     plt.ticklabel_format(useMathText = True)
     plt.xlabel("Virtual time", labelpad = 20)
     fig.tight_layout()
-    plt.savefig(os.path.join(name, "roi_global.png"), dpi = 600)
+    plt.savefig(os.path.join(name, "global.png"), dpi = 600)
     plt.close(fig)
     pbar.update(1)
 
-    # roi local traces
-    for key in roi_local_traces:
+    # ranges local traces
+    for key in local_traces:
         plt.cla()
         fig, ax = plt.subplots(figsize = (8, 7))
-        ax.plot(roi_local_traces[key], 'k.', markersize = 0.3)
+        ax.plot(local_traces[key], 'k.', markersize = 0.3)
         plt.ticklabel_format(useMathText = True)
         plt.xlabel("Virtual time", labelpad = 20)
         fig.tight_layout()
@@ -154,9 +154,9 @@ def visualize(all_trace, roi_global_trace, roi_local_traces, name):
 
 def main():
     trace_name, trace_file, rconfig_file = parse_args()
-    roi = read_rconfig(rconfig_file)
-    all_trace, roi_global_trace, roi_local_traces = extract(trace_file, roi)
-    visualize(all_trace, roi_global_trace, roi_local_traces, trace_name)
+    ranges = read_rconfig(rconfig_file)
+    all_trace, global_trace, local_traces = extract(trace_file, ranges)
+    visualize(all_trace, global_trace, local_traces, trace_name)
 
 
 if __name__ == "__main__":
