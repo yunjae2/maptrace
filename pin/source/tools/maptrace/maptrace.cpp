@@ -18,6 +18,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <regex.h>
 using std::string;
 using std::hex;
 using std::ios;
@@ -62,6 +63,8 @@ std::ofstream FuncLogFile;
 std::ofstream DebugTraceFile;
 #endif
 
+std::vector<regex_t> regvec;
+
 PIN_MUTEX fmutex;
 
 /* ===================================================================== */
@@ -71,9 +74,30 @@ PIN_MUTEX fmutex;
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
 		"o", "maptrace.out", "specify trace file name");
 KNOB<string> KnobFuncs(KNOB_MODE_APPEND, "pintool",
-		"f", "foo", "Target function names to trace");
+		"f", "foo", "Target function names to trace (regex)");
 KNOB<string> KnobFuncLogFile(KNOB_MODE_WRITEONCE, "pintool",
 		"l", "NO_FILE", "Log functions to the specified file");
+
+static void init_regex(void)
+{
+	int i;
+	int nr_funcs = KnobFuncs.NumberOfValues();
+	string func_name;
+	regex_t regex;
+	int ret;
+
+	for (i = 0; i < nr_funcs; i++)
+	{
+		func_name = KnobFuncs.Value(i);
+		ret = regcomp(&regex, func_name.c_str(), 0);
+		if (ret)
+		{
+			std::cerr << "Could not compile regex: " << func_name << std::endl;
+		}
+
+		regvec.push_back(regex);
+	}
+}
 
 static void log_rtn(RTN rtn)
 {
@@ -146,15 +170,26 @@ static VOID NoRecordMemWrite(VOID)
 
 BOOL is_target(RTN rtn)
 {
-	UINT32 nr_funcs = KnobFuncs.NumberOfValues();
+	UINT32 nr_funcs = regvec.size();
 	UINT32 i;
 	string rtn_name = PIN_UndecorateSymbolName(RTN_Name(rtn),
 			UNDECORATION_NAME_ONLY);
+	char msgbuf[100];
+	int ret;
 
 	for (i = 0; i < nr_funcs; i++)
 	{
-		if (rtn_name == KnobFuncs.Value(i))
+		ret = regexec(&regvec[i], rtn_name.c_str(), 0, NULL, 0);
+		if (!ret)
 			return true;
+		else if (ret == REG_NOMATCH)
+			continue;
+		else {
+			regerror(ret, &regvec[i], msgbuf, sizeof(msgbuf));
+			std::cerr << "Regex match failed: " << msgbuf << std::endl;
+			exit(1);
+		}
+
 	}
 
 	return false;
@@ -257,6 +292,8 @@ VOID Image(IMG img, void *v)
 			if (!is_target(rtn))
 				continue;
 
+			std::cerr << "New target: " << RTN_Name(rtn) << std::endl;
+
             RTN_Open( rtn );
 			RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)Activate, IARG_END);
 			RTN_InsertCall(rtn, IPOINT_AFTER, (AFUNPTR)Deactivate, IARG_END);
@@ -299,6 +336,8 @@ int main(int argc, char *argv[])
 	DebugTraceFile << hex;
 	DebugTraceFile.setf(ios::showbase);
 #endif
+
+	init_regex();
 
 	PIN_MutexInit(&fmutex);
 
