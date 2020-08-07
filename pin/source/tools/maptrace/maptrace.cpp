@@ -292,7 +292,10 @@ VOID Image(IMG img, void *v)
 			if (!is_target(rtn))
 				continue;
 
-			std::cerr << "New target: " << RTN_Name(rtn) << std::endl;
+			rtn_name = PIN_UndecorateSymbolName(RTN_Name(rtn),
+					UNDECORATION_NAME_ONLY);
+
+			std::cerr << "New target: " << rtn_name << std::endl;
 
             RTN_Open( rtn );
 			RTN_InsertCall(rtn, IPOINT_BEFORE, (AFUNPTR)Activate, IARG_END);
