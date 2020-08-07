@@ -57,9 +57,12 @@ using std::endl;
 /* ===================================================================== */
 
 std::ofstream TraceFile;
+std::ofstream FuncLogFile;
 #if DEBUG
 std::ofstream DebugTraceFile;
 #endif
+
+PIN_MUTEX fmutex;
 
 /* ===================================================================== */
 /* Commandline Switches */
@@ -69,8 +72,18 @@ KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
 		"o", "maptrace.out", "specify trace file name");
 KNOB<string> KnobFuncs(KNOB_MODE_APPEND, "pintool",
 		"f", "foo", "Target function names to trace");
+KNOB<string> KnobFuncLogFile(KNOB_MODE_WRITEONCE, "pintool",
+		"l", "NO_FILE", "Log functions to the specified file");
 
-PIN_MUTEX fmutex;
+static void log_rtn(RTN rtn)
+{
+	if (!FuncLogFile.is_open())
+		return;
+
+	string rtn_name = PIN_UndecorateSymbolName(RTN_Name(rtn),
+			UNDECORATION_NAME_ONLY);
+	FuncLogFile << rtn_name << std::endl;
+}
 
 /* ===================================================================== */
 /* Print Help Message                                                    */
@@ -230,6 +243,8 @@ VOID Instruction(INS ins, VOID *v)
 
 VOID Image(IMG img, void *v)
 {
+	string rtn_name;
+
 	for (SEC sec = IMG_SecHead(img); SEC_Valid(sec); sec = SEC_Next(sec))
     {
         // RTN_InsertCall() and INS_InsertCall() are executed in order of
@@ -237,6 +252,8 @@ VOID Image(IMG img, void *v)
         // executed before the IPOINT_BEFORE.
         for (RTN rtn = SEC_RtnHead(sec); RTN_Valid(rtn); rtn = RTN_Next(rtn))
         {
+			log_rtn(rtn);
+
 			if (!is_target(rtn))
 				continue;
 
@@ -272,6 +289,11 @@ int main(int argc, char *argv[])
 	}
 
 	TraceFile.open(KnobOutputFile.Value().c_str(), ios::out | ios::binary);
+
+	string flogfile = KnobFuncLogFile.Value().c_str();
+	if (flogfile != "NO_FILE")
+		FuncLogFile.open(KnobFuncLogFile.Value().c_str());
+
 #if DEBUG
 	DebugTraceFile.open("posetrace_debug.out");
 	DebugTraceFile << hex;
