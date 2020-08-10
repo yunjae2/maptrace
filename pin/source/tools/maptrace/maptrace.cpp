@@ -66,6 +66,7 @@ std::ofstream DebugTraceFile;
 std::vector<regex_t> regvec;
 
 PIN_MUTEX fmutex;
+PIN_MUTEX amutex;
 
 /* ===================================================================== */
 /* Commandline Switches */
@@ -168,6 +169,12 @@ static VOID NoRecordMemWrite(VOID)
 
 /* ===================================================================== */
 
+BOOL has_suffix(const std::string &str, const std::string &suffix)
+{
+	return str.size() >= suffix.size() &&
+		str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 BOOL is_target(RTN rtn)
 {
 	UINT32 nr_funcs = regvec.size();
@@ -176,6 +183,9 @@ BOOL is_target(RTN rtn)
 			UNDECORATION_NAME_ONLY);
 	char msgbuf[100];
 	int ret;
+
+	if (has_suffix(RTN_Name(rtn), "@plt"))
+		return false;
 
 	for (i = 0; i < nr_funcs; i++)
 	{
@@ -199,17 +209,24 @@ INT64 activated = 0;
 
 VOID Activate(VOID)
 {
+	PIN_MutexLock(&amutex);
 	activated++;
+	PIN_MutexUnlock(&amutex);
 }
 
 VOID Deactivate(VOID)
 {
+	PIN_MutexLock(&amutex);
 	activated--;
+	PIN_MutexUnlock(&amutex);
 }
 
 VOID Instruction(INS ins, VOID *v)
 {
-	if (activated <= 0)
+	PIN_MutexLock(&amutex);
+	INT64 act = activated;
+	PIN_MutexUnlock(&amutex);
+	if (act <= 0)
 		return;
 
 	if (INS_IsStackRead(ins) || INS_IsStackWrite(ins))
@@ -343,6 +360,7 @@ int main(int argc, char *argv[])
 	init_regex();
 
 	PIN_MutexInit(&fmutex);
+	PIN_MutexInit(&amutex);
 
 	IMG_AddInstrumentFunction(Image, 0);
 	INS_AddInstrumentFunction(Instruction, 0);
@@ -356,6 +374,7 @@ int main(int argc, char *argv[])
 	RecordWriteAddrSize(0, 0);
 
 	PIN_MutexFini(&fmutex);
+	PIN_MutexFini(&amutex);
 
 	return 0;
 }
