@@ -64,6 +64,8 @@ std::ofstream DebugTraceFile;
 #endif
 
 std::vector<regex_t> regvec;
+int sample_ratio = 1;
+int sample_cnt;
 
 PIN_MUTEX fmutex;
 PIN_MUTEX amutex;
@@ -78,6 +80,8 @@ KNOB<string> KnobFuncs(KNOB_MODE_APPEND, "pintool",
 		"f", "foo", "Target function names to trace (regex)");
 KNOB<string> KnobFuncLogFile(KNOB_MODE_WRITEONCE, "pintool",
 		"l", "NO_FILE", "Log functions to the specified file");
+KNOB<string> KnobSampleRatio(KNOB_MODE_WRITEONCE, "pintool",
+		"s", "1", "Sampling ratio (e.g., 100 means 1%% sampling)");
 
 static void init_regex(void)
 {
@@ -98,6 +102,12 @@ static void init_regex(void)
 
 		regvec.push_back(regex);
 	}
+}
+
+static void init_sampling(void)
+{
+	sample_ratio = std::atoi(KnobSampleRatio.Value().c_str());
+	sample_cnt = 0;
 }
 
 static void log_rtn(RTN rtn)
@@ -130,6 +140,11 @@ static INT32 Usage()
 
 static VOID __RecordMem(VOID * addr, INT32 size)
 {
+	if (++sample_cnt < sample_ratio)
+		return;
+
+	sample_cnt = 0;
+
 	ADDRINT address = SignRef((ADDRINT) addr);
 
 #if DEBUG
@@ -358,6 +373,7 @@ int main(int argc, char *argv[])
 #endif
 
 	init_regex();
+	init_sampling();
 
 	PIN_MutexInit(&fmutex);
 	PIN_MutexInit(&amutex);
