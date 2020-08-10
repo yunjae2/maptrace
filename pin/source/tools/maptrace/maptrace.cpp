@@ -75,13 +75,13 @@ PIN_MUTEX amutex;
 /* ===================================================================== */
 
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool",
-		"o", "maptrace.out", "specify trace file name");
+		"o", "maptrace.out", "output trace file name");
 KNOB<string> KnobFuncs(KNOB_MODE_APPEND, "pintool",
 		"f", "foo", "Target function names to trace (regex)");
 KNOB<string> KnobFuncLogFile(KNOB_MODE_WRITEONCE, "pintool",
 		"l", "NO_FILE", "Log functions to the specified file");
 KNOB<string> KnobSampleRatio(KNOB_MODE_WRITEONCE, "pintool",
-		"s", "1", "Sampling ratio (e.g., 100 means 1%% sampling)");
+		"s", "1", "Sampling ratio (e.g., 100 means 1% sampling)");
 
 static void init_regex(void)
 {
@@ -127,8 +127,7 @@ static void log_rtn(RTN rtn)
 static INT32 Usage()
 {
 	cerr <<
-		"This tool produces a memory address trace.\n"
-		"For each (dynamic) instruction reading or writing to memory the the ip and ea are recorded\n"
+		"This tool produces the memory address trace of the specified functions in the given program.\n"
 		"\n";
 
 	cerr << KNOB_BASE::StringKnobSummary();
