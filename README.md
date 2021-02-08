@@ -1,6 +1,7 @@
 # maptrace
 
 A toolbox for analysis of memory access patterns in ROIs (functions) of an application.
+This tool is based on Intel PIN.
 
 ## Installation
 ```
